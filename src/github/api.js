@@ -13,7 +13,7 @@ const { capitalizeFirstLetter } = require("../utils/string");
  * @param {import('../utils/lint-result').LintResult} lintResult - Parsed lint result
  * @param {string} summary - Summary for the GitHub check
  */
-async function createCheck(linterName, sha, context, lintResult, summary) {
+async function createCheck(linterName, sha, context, lintResult, summary, isPullRequest) {
 	let annotations = [];
 	for (const level of ["warning", "error"]) {
 		annotations = [
@@ -47,19 +47,26 @@ async function createCheck(linterName, sha, context, lintResult, summary) {
 		},
 	};
 	try {
-		core.info(`Creating GitHub check with ${annotations.length} annotations for ${linterName}…`);
-		await request(`https://api.github.com/repos/${context.repository.repoName}/check-runs`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				// "Accept" header is required to access Checks API during preview period
-				Accept: "application/vnd.github.antiope-preview+json",
-				Authorization: `Bearer ${context.token}`,
-				"User-Agent": actionName,
-			},
-			body,
-		});
-		core.info(`${linterName} check created successfully`);
+    if (!isPullRequest) {
+      core.info(`Creating GitHub check with ${annotations.length} annotations for ${linterName}…`);
+      await request(`https://api.github.com/repos/${context.repository.repoName}/check-runs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // "Accept" header is required to access Checks API during preview period
+          Accept: "application/vnd.github.antiope-preview+json",
+          Authorization: `Bearer ${context.token}`,
+          "User-Agent": actionName,
+        },
+        body,
+      });
+      core.info(`${linterName} check created successfully`);
+    } else {
+      core.info(`${linterName} found ${summary}`)
+      annotations.map(({annotation}) => {
+        core.info(`${annotation.message}`)
+      })
+    }
 	} catch (err) {
 		core.error(err);
 		throw new Error(`Error trying to create GitHub check for ${linterName}: ${err.message}`);
